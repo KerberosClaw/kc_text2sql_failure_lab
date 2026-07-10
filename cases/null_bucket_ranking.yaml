@@ -1,0 +1,51 @@
+# Case: ranking swallowed by a NULL bucket
+# The canonical "it runs, it looks right, it is wrong" specimen.
+id: null_bucket_ranking
+category: null-semantics
+title: "Top customers ranking swallowed by a NULL bucket"
+
+question: >
+  Who are the top 10 customers by number of orders? Individual buyers
+  (no company name) should appear under their personal name.
+
+ambiguity_resolution: >
+  A "customer" is one customer entity. Individual buyers are ranked by
+  personal name and are never merged together. Counting unit is distinct
+  orders. Result is the top 10 entities by that count, descending.
+  Return exactly two columns: customer display name, order count.
+
+hidden_trap: >
+  company_name is NULL for individual buyers. A naive GROUP BY
+  company_name merges every individual into a single NULL row whose
+  combined count ranks inside the top 10 — the row is "real numbers,
+  fake entity".
+
+naive_sql: |
+  SELECT c.company_name AS customer, COUNT(DISTINCT o.order_id) AS cnt
+  FROM customers c
+  JOIN orders o ON o.customer_id = c.customer_id
+  GROUP BY c.company_name
+  ORDER BY cnt DESC
+  LIMIT 10
+
+oracle:
+  sql: |
+    SELECT COALESCE(NULLIF(c.company_name, ''), c.full_name) AS customer,
+           COUNT(DISTINCT o.order_id) AS cnt
+    FROM customers c
+    JOIN orders o ON o.customer_id = c.customer_id
+    GROUP BY customer
+    ORDER BY cnt DESC, customer ASC
+    LIMIT 10
+  grading: ordered-set
+
+failure_modes: [wrong-result]
+
+zh:
+  title: "排行榜被 NULL 桶吞掉"
+  question: >
+    訂單數前十大客戶是誰？散客（無公司名稱）以個人姓名列名。
+  ambiguity_resolution: >
+    「客戶」指單一客戶實體；散客各自以姓名計、永不合併。計數單位為不重複訂單數，取前十、由高至低。輸出恰好兩欄：客戶顯示名稱、訂單數。
+  hidden_trap: >
+    散客的 company_name 為 NULL。天真的 GROUP BY company_name 把所有散客聚成一列 NULL，以合計訂單數擠進前十 — 那一列「數字是真的、實體是假的」。

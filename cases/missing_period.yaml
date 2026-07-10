@@ -1,0 +1,59 @@
+# Case: a month with no orders vanishes from a trend
+id: missing_period
+category: missing-period
+title: "Monthly trend missing the month that had nothing"
+
+question: >
+  Show monthly order counts for the garden category in 2025 — one row
+  per calendar month, twelve rows total, with zero for months that had
+  no orders.
+
+ambiguity_resolution: >
+  The output is exactly 12 rows, months 2025-01 through 2025-12 in
+  order, each with the count of distinct garden orders (0 where none
+  exist).
+  Return exactly two columns: month as YYYY-MM, order count.
+
+hidden_trap: >
+  Garden had no orders in February 2025. Grouping by the months found
+  in the data returns eleven rows — the trend line looks complete and
+  is quietly missing a month. Averages, gaps and "which month was
+  worst" all come out wrong downstream.
+
+naive_sql: |
+  SELECT substr(o.order_date, 1, 7) AS month,
+         COUNT(DISTINCT o.order_id) AS cnt
+  FROM orders o
+  JOIN order_items oi ON oi.order_id = o.order_id
+  JOIN products p     ON p.product_id = oi.product_id
+  WHERE p.category_id = (SELECT category_id FROM categories WHERE name = 'garden')
+    AND o.order_date LIKE '2025-%'
+  GROUP BY month
+  ORDER BY month ASC
+
+oracle:
+  sql: |
+    WITH RECURSIVE months(m) AS (
+      SELECT 1 UNION ALL SELECT m + 1 FROM months WHERE m < 12
+    )
+    SELECT printf('2025-%02d', m) AS month,
+           (SELECT COUNT(DISTINCT o.order_id)
+            FROM orders o
+            JOIN order_items oi ON oi.order_id = o.order_id
+            JOIN products p     ON p.product_id = oi.product_id
+            WHERE p.category_id = (SELECT category_id FROM categories WHERE name = 'garden')
+              AND substr(o.order_date, 1, 7) = printf('2025-%02d', m)) AS cnt
+    FROM months
+    ORDER BY m ASC
+  grading: ordered-set
+
+failure_modes: [wrong-result]
+
+zh:
+  title: "趨勢少了那個什麼都沒發生的月份"
+  question: >
+    garden 類別 2025 年的逐月訂單數 — 每月一列、共 12 列，無訂單的月份為 0。
+  ambiguity_resolution: >
+    輸出恰好 12 列，2025-01 至 2025-12 依序，每列為該月不重複的 garden 訂單數（無則為 0）。恰好兩欄：月份 YYYY-MM、訂單數。
+  hidden_trap: >
+    garden 在 2025 年 2 月零訂單。按資料裡出現的月份分組只回 11 列 — 趨勢線看起來完整，卻悄悄少了一個月。下游的平均、缺口分析、「哪個月最差」全部歪掉。

@@ -1,0 +1,19 @@
+[project]
+name = "failure-lab"
+version = "0.1.0"
+description = "Executable != Correct - a semantic failure lab for Text-to-SQL"
+requires-python = ">=3.12"
+dependencies = ["pyyaml>=6"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.4"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100

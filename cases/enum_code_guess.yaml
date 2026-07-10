@@ -1,0 +1,50 @@
+# Case: hallucinated enum code returns a confident zero
+id: enum_code_guess
+category: value-domain
+title: "Guessed entity_type code returns zero rows dressed as an answer"
+
+question: >
+  How many orders were placed by individual customers in 2025? Use the
+  entity_type column to identify individuals.
+
+ambiguity_resolution: >
+  Individual customers are entity_type 7 or 8 (both individual
+  variants, as documented in the schema DDL). The answer is one number:
+  distinct 2025 orders across all such customers.
+  Return exactly one column: the order count.
+
+hidden_trap: >
+  The valid entity_type codes are 3, 5, 7 and 8 — documented in the
+  schema comment. Codes 1 and 2 do not exist at all. A model that
+  guesses "1 probably means individual" gets zero rows back, and zero
+  rows look exactly like a real answer: "there were no such orders."
+  Value domains are database domain knowledge; a sharper question
+  cannot fix a guessed code, only schema documentation (or a lookup)
+  can.
+
+naive_sql: |
+  SELECT COUNT(DISTINCT o.order_id) AS cnt
+  FROM customers c
+  JOIN orders o ON o.customer_id = c.customer_id
+  WHERE c.entity_type = 1
+    AND o.order_date LIKE '2025-%'
+
+oracle:
+  sql: |
+    SELECT COUNT(DISTINCT o.order_id) AS cnt
+    FROM customers c
+    JOIN orders o ON o.customer_id = c.customer_id
+    WHERE c.entity_type IN (7, 8)
+      AND o.order_date LIKE '2025-%'
+  grading: scalar
+
+failure_modes: [wrong-result]
+
+zh:
+  title: "猜錯的代碼回了一個很像答案的零"
+  question: >
+    2025 年個人客戶下了多少張訂單？用 entity_type 欄位判別個人。
+  ambiguity_resolution: >
+    個人客戶為 entity_type 7 或 8（兩種個人變體，DDL 註解有記載）。答案是一個數字：全體個人客戶的 2025 年不重複訂單數。恰好一欄。
+  hidden_trap: >
+    有效代碼是 3、5、7、8 — 就寫在 schema 註解裡；1 和 2 根本不存在。猜「1 大概是個人」的模型拿到 0 列，而 0 列看起來就像正經答案：「沒有這類訂單」。值域是資料庫領域知識 — 問題問得再精準也救不了猜錯的代碼，只有 schema 文件（或查表）能。

@@ -1,0 +1,54 @@
+# Case: JOIN fan-out silently inflates a count
+id: join_fanout_count
+category: join-fanout
+title: "Order counts inflated by item-level JOIN fan-out"
+
+question: >
+  For each product category, how many orders in 2025 included at least
+  one product from that category?
+
+ambiguity_resolution: >
+  Each order counts once per category, even when it contains several
+  items from that category. Output one row per category that had orders,
+  ordered by count descending, then category name ascending.
+  Return exactly two columns: category name, order count.
+
+hidden_trap: >
+  About a third of the orders contain 2-3 items from the same category.
+  Joining orders through order_items and counting order_id without
+  DISTINCT counts item rows, not orders — every multi-item order is
+  silently double- or triple-counted. The totals look plausible; they
+  are all wrong.
+
+naive_sql: |
+  SELECT c.name AS category, COUNT(o.order_id) AS cnt
+  FROM categories c
+  JOIN products p    ON p.category_id = c.category_id
+  JOIN order_items oi ON oi.product_id = p.product_id
+  JOIN orders o      ON o.order_id = oi.order_id
+  WHERE o.order_date LIKE '2025-%'
+  GROUP BY c.name
+  ORDER BY cnt DESC, category ASC
+
+oracle:
+  sql: |
+    SELECT c.name AS category, COUNT(DISTINCT o.order_id) AS cnt
+    FROM categories c
+    JOIN products p    ON p.category_id = c.category_id
+    JOIN order_items oi ON oi.product_id = p.product_id
+    JOIN orders o      ON o.order_id = oi.order_id
+    WHERE o.order_date LIKE '2025-%'
+    GROUP BY c.name
+    ORDER BY cnt DESC, category ASC
+  grading: ordered-set
+
+failure_modes: [wrong-result]
+
+zh:
+  title: "明細 JOIN 灌水了訂單數"
+  question: >
+    2025 年各產品類別有多少張訂單包含該類別商品？
+  ambiguity_resolution: >
+    每張訂單對每個類別只計一次，即使含多件同類商品。輸出有訂單的類別各一列，依數量降冪、同數依類別名升冪。恰好兩欄：類別名、訂單數。
+  hidden_trap: >
+    約三分之一的訂單含 2–3 件同類商品。經 order_items JOIN 後對 order_id 不加 DISTINCT 計數，數的是明細列不是訂單 — 每張多品項訂單被悄悄重複計算。總數看起來合理，全部都錯。

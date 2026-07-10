@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Text-to-SQL Failure Lab — Executable ≠ Correct</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1><a href="#/">Text-to-SQL Failure Lab</a></h1>
+    <p class="tagline" id="tagline">Executable ≠ Correct — the SQL runs, the rows come back, the answer is still wrong.</p>
+    <nav>
+      <a href="#/" data-nav="gallery">Cases</a>
+      <a href="#/scoreboard" data-nav="scoreboard">Scoreboard</a>
+      <a href="https://github.com/KerberosClaw/kc_text2sql_failure_lab" rel="noopener">GitHub</a>
+      <a href="#" id="lang-toggle" class="lang">繁體中文</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap" id="app">
+  <p class="loading">Loading cases… (serve this folder over HTTP: <code>make gallery</code>)</p>
+</main>
+<footer class="wrap">
+  <p id="footer-note">Every number on this page is produced live from <code>demo.db</code> by the runner — regenerate with <code>make eval</code>.</p>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,610 @@
+[
+ {
+  "id": "empty_vs_zero",
+  "category": "empty-vs-zero",
+  "title": "Zero-order category silently missing from a monthly report",
+  "question": "How many orders did each product category have in December 2025? Include categories with zero orders.",
+  "ambiguity_resolution": "One row per category — all six categories appear, with 0 for a category that had no December 2025 orders. Ordered by category name ascending. Return exactly two columns: category name, order count.",
+  "hidden_trap": "The books category has no orders in December 2025. An inner-join pipeline can only count rows that exist, so books simply disappears from the output — five rows instead of six, and nobody notices the silence. \"No rows\" and \"zero\" are different answers.",
+  "naive_sql": "SELECT c.name AS category, COUNT(DISTINCT o.order_id) AS cnt\nFROM categories c\nJOIN products p    ON p.category_id = c.category_id\nJOIN order_items oi ON oi.product_id = p.product_id\nJOIN orders o      ON o.order_id = oi.order_id\nWHERE o.order_date LIKE '2025-12-%'\nGROUP BY c.name\nORDER BY category ASC",
+  "oracle_sql": "SELECT c.name AS category,\n       (SELECT COUNT(DISTINCT o.order_id)\n        FROM orders o\n        JOIN order_items oi ON oi.order_id = o.order_id\n        JOIN products p     ON p.product_id = oi.product_id\n        WHERE p.category_id = c.category_id\n          AND o.order_date LIKE '2025-12-%') AS cnt\nFROM categories c\nORDER BY category ASC",
+  "grading": "ordered-set",
+  "naive_result": {
+   "columns": [
+    "category",
+    "cnt"
+   ],
+   "rows": [
+    [
+     "electronics",
+     22
+    ],
+    [
+     "furniture",
+     12
+    ],
+    [
+     "garden",
+     7
+    ],
+    [
+     "groceries",
+     16
+    ],
+    [
+     "toys",
+     13
+    ]
+   ]
+  },
+  "oracle_result": {
+   "columns": [
+    "category",
+    "cnt"
+   ],
+   "rows": [
+    [
+     "books",
+     0
+    ],
+    [
+     "electronics",
+     22
+    ],
+    [
+     "furniture",
+     12
+    ],
+    [
+     "garden",
+     7
+    ],
+    [
+     "groceries",
+     16
+    ],
+    [
+     "toys",
+     13
+    ]
+   ]
+  },
+  "zh": {
+   "title": "零訂單的類別從月報上消失",
+   "question": "2025 年 12 月各產品類別有多少張訂單？包含零訂單的類別。\n",
+   "ambiguity_resolution": "每類別一列 — 六個類別全部出現，該月無訂單者為 0。依類別名升冪。恰好兩欄：類別名、訂單數。\n",
+   "hidden_trap": "books 在 2025 年 12 月沒有任何訂單。INNER JOIN 管線只數得到存在的列，books 整列消失 — 五列而不是六列，沒有人注意到那個沉默。「沒有列」和「值為零」是兩個不同的答案。\n"
+  }
+ },
+ {
+  "id": "entity_type_ignored",
+  "category": "entity-semantics",
+  "title": "Individuals leaderboard topped by corporations",
+  "question": "Who are the top 5 individual customers by number of orders? \"Individual\" means the customer entity itself is a person — see the entity_type codes documented in the schema — not a company's contact person.",
+  "ambiguity_resolution": "An individual customer is a row whose entity_type is one of the individual codes (7 or 8). Rank by distinct order count descending, then full_name ascending, exactly 5 rows. Return exactly two columns: customer full name, order count.",
+  "hidden_trap": "Every row has full_name populated — for companies and nonprofit organizations it holds the contact person. Using \"full_name IS NOT NULL\" as the definition of individual returns a leaderboard of corporate contact persons: the top \"individuals\" are actually the biggest companies and a charitable foundation. The correct discriminator is the entity_type column the schema documents.",
+  "naive_sql": "SELECT c.full_name AS customer, COUNT(DISTINCT o.order_id) AS cnt\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nWHERE c.full_name IS NOT NULL\nGROUP BY c.full_name\nORDER BY cnt DESC\nLIMIT 5",
+  "oracle_sql": "SELECT c.full_name AS customer, COUNT(DISTINCT o.order_id) AS cnt\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nWHERE c.entity_type IN (7, 8)\nGROUP BY c.full_name\nORDER BY cnt DESC, customer ASC\nLIMIT 5",
+  "grading": "ordered-set",
+  "naive_result": {
+   "columns": [
+    "customer",
+    "cnt"
+   ],
+   "rows": [
+    [
+     "Ada Alder",
+     30
+    ],
+    [
+     "Ben Duarte",
+     28
+    ],
+    [
+     "Cleo Grant",
+     26
+    ],
+    [
+     "Dmitri Jensen",
+     25
+    ],
+    [
+     "Erika Moreau",
+     24
+    ]
+   ]
+  },
+  "oracle_result": {
+   "columns": [
+    "customer",
+    "cnt"
+   ],
+   "rows": [
+    [
+     "Dmitri Fujii 1",
+     9
+    ],
+    [
+     "Opal Sato 2",
+     8
+    ],
+    [
+     "Farid Lindt 3",
+     7
+    ],
+    [
+     "Quinn Egner 4",
+     6
+    ],
+    [
+     "Henry Ricci 5",
+     5
+    ]
+   ]
+  },
+  "zh": {
+   "title": "個人排行榜被法人攻頂",
+   "question": "訂單數前五大個人客戶是誰？「個人」指客戶實體本身是自然人 — 見 schema 的 entity_type 代碼 — 不是公司的聯絡人。\n",
+   "ambiguity_resolution": "個人客戶＝entity_type 為個人代碼（7 或 8）的列。依不重複訂單數降冪、同數依姓名升冪，恰好 5 列。恰好兩欄：客戶姓名、訂單數。\n",
+   "hidden_trap": "每一列的 full_name 都有值 — 公司與非營利組織那一格放的是聯絡人。用「full_name 非空」定義個人，回來的是法人聯絡人排行榜：前幾名「個人」其實是最大的幾家公司和一個基金會。正確的判別是 schema 記載的 entity_type 欄位。\n"
+  }
+ },
+ {
+  "id": "enum_code_guess",
+  "category": "value-domain",
+  "title": "Guessed entity_type code returns zero rows dressed as an answer",
+  "question": "How many orders were placed by individual customers in 2025? Use the entity_type column to identify individuals.",
+  "ambiguity_resolution": "Individual customers are entity_type 7 or 8 (both individual variants, as documented in the schema DDL). The answer is one number: distinct 2025 orders across all such customers. Return exactly one column: the order count.",
+  "hidden_trap": "The valid entity_type codes are 3, 5, 7 and 8 — documented in the schema comment. Codes 1 and 2 do not exist at all. A model that guesses \"1 probably means individual\" gets zero rows back, and zero rows look exactly like a real answer: \"there were no such orders.\" Value domains are database domain knowledge; a sharper question cannot fix a guessed code, only schema documentation (or a lookup) can.",
+  "naive_sql": "SELECT COUNT(DISTINCT o.order_id) AS cnt\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nWHERE c.entity_type = 1\n  AND o.order_date LIKE '2025-%'",
+  "oracle_sql": "SELECT COUNT(DISTINCT o.order_id) AS cnt\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nWHERE c.entity_type IN (7, 8)\n  AND o.order_date LIKE '2025-%'",
+  "grading": "scalar",
+  "naive_result": {
+   "columns": [
+    "cnt"
+   ],
+   "rows": [
+    [
+     0
+    ]
+   ]
+  },
+  "oracle_result": {
+   "columns": [
+    "cnt"
+   ],
+   "rows": [
+    [
+     154
+    ]
+   ]
+  },
+  "zh": {
+   "title": "猜錯的代碼回了一個很像答案的零",
+   "question": "2025 年個人客戶下了多少張訂單？用 entity_type 欄位判別個人。\n",
+   "ambiguity_resolution": "個人客戶為 entity_type 7 或 8（兩種個人變體，DDL 註解有記載）。答案是一個數字：全體個人客戶的 2025 年不重複訂單數。恰好一欄。\n",
+   "hidden_trap": "有效代碼是 3、5、7、8 — 就寫在 schema 註解裡；1 和 2 根本不存在。猜「1 大概是個人」的模型拿到 0 列，而 0 列看起來就像正經答案：「沒有這類訂單」。值域是資料庫領域知識 — 問題問得再精準也救不了猜錯的代碼，只有 schema 文件（或查表）能。\n"
+  }
+ },
+ {
+  "id": "growth_definition",
+  "category": "growth-definition",
+  "title": "Absolute growth question answered with percentage growth",
+  "question": "Which product category had the largest growth in number of orders from 2024 to 2025? Growth means the absolute increase in the count of orders containing that category.",
+  "ambiguity_resolution": "Growth is defined as (2025 order count) minus (2024 order count), in absolute orders — the question says so explicitly. Output exactly one row: category name and the absolute increase. Return exactly two columns: category name, absolute increase.",
+  "hidden_trap": "The data is engineered so the absolute winner and the percentage winner are different categories: electronics grows +18 orders (+15%), garden grows +15 orders (+125%). A model that pattern-matches \"growth\" to percentage change confidently returns the wrong category — ignoring that the question defined growth two sentences earlier.",
+  "naive_sql": "WITH per AS (\n  SELECT c.name AS category,\n         substr(o.order_date, 1, 4) AS y,\n         COUNT(DISTINCT o.order_id) AS cnt\n  FROM categories c\n  JOIN products p    ON p.category_id = c.category_id\n  JOIN order_items oi ON oi.product_id = p.product_id\n  JOIN orders o      ON o.order_id = oi.order_id\n  GROUP BY c.name, y\n)\nSELECT a.category,\n       ROUND(100.0 * (b.cnt - a.cnt) / a.cnt, 1) AS growth_pct\nFROM per a JOIN per b ON b.category = a.category\nWHERE a.y = '2024' AND b.y = '2025'\nORDER BY growth_pct DESC\nLIMIT 1",
+  "oracle_sql": "WITH per AS (\n  SELECT c.name AS category,\n         substr(o.order_date, 1, 4) AS y,\n         COUNT(DISTINCT o.order_id) AS cnt\n  FROM categories c\n  JOIN products p    ON p.category_id = c.category_id\n  JOIN order_items oi ON oi.product_id = p.product_id\n  JOIN orders o      ON o.order_id = oi.order_id\n  GROUP BY c.name, y\n)\nSELECT a.category, b.cnt - a.cnt AS growth\nFROM per a JOIN per b ON b.category = a.category\nWHERE a.y = '2024' AND b.y = '2025'\nORDER BY growth DESC, a.category ASC\nLIMIT 1",
+  "grading": "ordered-set",
+  "naive_result": {
+   "columns": [
+    "category",
+    "growth_pct"
+   ],
+   "rows": [
+    [
+     "garden",
+     125.0
+    ]
+   ]
+  },
+  "oracle_result": {
+   "columns": [
+    "category",
+    "growth"
+   ],
+   "rows": [
+    [
+     "electronics",
+     18
+    ]
+   ]
+  },
+  "zh": {
+   "title": "問絕對成長、答百分比成長",
+   "question": "2024 到 2025 訂單數成長最多的產品類別是哪個？成長指含該類別訂單數的絕對增量。\n",
+   "ambiguity_resolution": "成長定義為 2025 訂單數減 2024 訂單數（絕對增量）— 題目已明說。輸出恰好一列兩欄：類別名、絕對增量。\n",
+   "hidden_trap": "資料刻意讓絕對冠軍與百分比冠軍分家：electronics +18（+15%）、garden +15（+125%）。把「成長」反射成百分比的模型會自信地答錯 — 無視兩句之前的定義。\n"
+  }
+ },
+ {
+  "id": "join_fanout_count",
+  "category": "join-fanout",
+  "title": "Order counts inflated by item-level JOIN fan-out",
+  "question": "For each product category, how many orders in 2025 included at least one product from that category?",
+  "ambiguity_resolution": "Each order counts once per category, even when it contains several items from that category. Output one row per category that had orders, ordered by count descending, then category name ascending. Return exactly two columns: category name, order count.",
+  "hidden_trap": "About a third of the orders contain 2-3 items from the same category. Joining orders through order_items and counting order_id without DISTINCT counts item rows, not orders — every multi-item order is silently double- or triple-counted. The totals look plausible; they are all wrong.",
+  "naive_sql": "SELECT c.name AS category, COUNT(o.order_id) AS cnt\nFROM categories c\nJOIN products p    ON p.category_id = c.category_id\nJOIN order_items oi ON oi.product_id = p.product_id\nJOIN orders o      ON o.order_id = oi.order_id\nWHERE o.order_date LIKE '2025-%'\nGROUP BY c.name\nORDER BY cnt DESC, category ASC",
+  "oracle_sql": "SELECT c.name AS category, COUNT(DISTINCT o.order_id) AS cnt\nFROM categories c\nJOIN products p    ON p.category_id = c.category_id\nJOIN order_items oi ON oi.product_id = p.product_id\nJOIN orders o      ON o.order_id = oi.order_id\nWHERE o.order_date LIKE '2025-%'\nGROUP BY c.name\nORDER BY cnt DESC, category ASC",
+  "grading": "ordered-set",
+  "naive_result": {
+   "columns": [
+    "category",
+    "cnt"
+   ],
+   "rows": [
+    [
+     "electronics",
+     206
+    ],
+    [
+     "groceries",
+     136
+    ],
+    [
+     "furniture",
+     90
+    ],
+    [
+     "toys",
+     73
+    ],
+    [
+     "books",
+     49
+    ],
+    [
+     "garden",
+     38
+    ]
+   ]
+  },
+  "oracle_result": {
+   "columns": [
+    "category",
+    "cnt"
+   ],
+   "rows": [
+    [
+     "electronics",
+     138
+    ],
+    [
+     "groceries",
+     96
+    ],
+    [
+     "furniture",
+     63
+    ],
+    [
+     "toys",
+     42
+    ],
+    [
+     "books",
+     33
+    ],
+    [
+     "garden",
+     27
+    ]
+   ]
+  },
+  "zh": {
+   "title": "明細 JOIN 灌水了訂單數",
+   "question": "2025 年各產品類別有多少張訂單包含該類別商品？\n",
+   "ambiguity_resolution": "每張訂單對每個類別只計一次，即使含多件同類商品。輸出有訂單的類別各一列，依數量降冪、同數依類別名升冪。恰好兩欄：類別名、訂單數。\n",
+   "hidden_trap": "約三分之一的訂單含 2–3 件同類商品。經 order_items JOIN 後對 order_id 不加 DISTINCT 計數，數的是明細列不是訂單 — 每張多品項訂單被悄悄重複計算。總數看起來合理，全部都錯。\n"
+  }
+ },
+ {
+  "id": "missing_period",
+  "category": "missing-period",
+  "title": "Monthly trend missing the month that had nothing",
+  "question": "Show monthly order counts for the garden category in 2025 — one row per calendar month, twelve rows total, with zero for months that had no orders.",
+  "ambiguity_resolution": "The output is exactly 12 rows, months 2025-01 through 2025-12 in order, each with the count of distinct garden orders (0 where none exist). Return exactly two columns: month as YYYY-MM, order count.",
+  "hidden_trap": "Garden had no orders in February 2025. Grouping by the months found in the data returns eleven rows — the trend line looks complete and is quietly missing a month. Averages, gaps and \"which month was worst\" all come out wrong downstream.",
+  "naive_sql": "SELECT substr(o.order_date, 1, 7) AS month,\n       COUNT(DISTINCT o.order_id) AS cnt\nFROM orders o\nJOIN order_items oi ON oi.order_id = o.order_id\nJOIN products p     ON p.product_id = oi.product_id\nWHERE p.category_id = (SELECT category_id FROM categories WHERE name = 'garden')\n  AND o.order_date LIKE '2025-%'\nGROUP BY month\nORDER BY month ASC",
+  "oracle_sql": "WITH RECURSIVE months(m) AS (\n  SELECT 1 UNION ALL SELECT m + 1 FROM months WHERE m < 12\n)\nSELECT printf('2025-%02d', m) AS month,\n       (SELECT COUNT(DISTINCT o.order_id)\n        FROM orders o\n        JOIN order_items oi ON oi.order_id = o.order_id\n        JOIN products p     ON p.product_id = oi.product_id\n        WHERE p.category_id = (SELECT category_id FROM categories WHERE name = 'garden')\n          AND substr(o.order_date, 1, 7) = printf('2025-%02d', m)) AS cnt\nFROM months\nORDER BY m ASC",
+  "grading": "ordered-set",
+  "naive_result": {
+   "columns": [
+    "month",
+    "cnt"
+   ],
+   "rows": [
+    [
+     "2025-01",
+     2
+    ],
+    [
+     "2025-03",
+     2
+    ],
+    [
+     "2025-04",
+     2
+    ],
+    [
+     "2025-05",
+     2
+    ],
+    [
+     "2025-06",
+     2
+    ],
+    [
+     "2025-07",
+     2
+    ],
+    [
+     "2025-08",
+     2
+    ],
+    [
+     "2025-09",
+     2
+    ],
+    [
+     "2025-10",
+     2
+    ],
+    [
+     "2025-11",
+     2
+    ],
+    [
+     "2025-12",
+     7
+    ]
+   ]
+  },
+  "oracle_result": {
+   "columns": [
+    "month",
+    "cnt"
+   ],
+   "rows": [
+    [
+     "2025-01",
+     2
+    ],
+    [
+     "2025-02",
+     0
+    ],
+    [
+     "2025-03",
+     2
+    ],
+    [
+     "2025-04",
+     2
+    ],
+    [
+     "2025-05",
+     2
+    ],
+    [
+     "2025-06",
+     2
+    ],
+    [
+     "2025-07",
+     2
+    ],
+    [
+     "2025-08",
+     2
+    ],
+    [
+     "2025-09",
+     2
+    ],
+    [
+     "2025-10",
+     2
+    ],
+    [
+     "2025-11",
+     2
+    ],
+    [
+     "2025-12",
+     7
+    ]
+   ]
+  },
+  "zh": {
+   "title": "趨勢少了那個什麼都沒發生的月份",
+   "question": "garden 類別 2025 年的逐月訂單數 — 每月一列、共 12 列，無訂單的月份為 0。\n",
+   "ambiguity_resolution": "輸出恰好 12 列，2025-01 至 2025-12 依序，每列為該月不重複的 garden 訂單數（無則為 0）。恰好兩欄：月份 YYYY-MM、訂單數。\n",
+   "hidden_trap": "garden 在 2025 年 2 月零訂單。按資料裡出現的月份分組只回 11 列 — 趨勢線看起來完整，卻悄悄少了一個月。下游的平均、缺口分析、「哪個月最差」全部歪掉。\n"
+  }
+ },
+ {
+  "id": "null_bucket_ranking",
+  "category": "null-semantics",
+  "title": "Top customers ranking swallowed by a NULL bucket",
+  "question": "Who are the top 10 customers by number of orders? Individual buyers (no company name) should appear under their personal name.",
+  "ambiguity_resolution": "A \"customer\" is one customer entity. Individual buyers are ranked by personal name and are never merged together. Counting unit is distinct orders. Result is the top 10 entities by that count, descending. Return exactly two columns: customer display name, order count.",
+  "hidden_trap": "company_name is NULL for individual buyers. A naive GROUP BY company_name merges every individual into a single NULL row whose combined count ranks inside the top 10 — the row is \"real numbers, fake entity\".",
+  "naive_sql": "SELECT c.company_name AS customer, COUNT(DISTINCT o.order_id) AS cnt\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nGROUP BY c.company_name\nORDER BY cnt DESC\nLIMIT 10",
+  "oracle_sql": "SELECT COALESCE(NULLIF(c.company_name, ''), c.full_name) AS customer,\n       COUNT(DISTINCT o.order_id) AS cnt\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nGROUP BY customer\nORDER BY cnt DESC, customer ASC\nLIMIT 10",
+  "grading": "ordered-set",
+  "naive_result": {
+   "columns": [
+    "customer",
+    "cnt"
+   ],
+   "rows": [
+    [
+     null,
+     294
+    ],
+    [
+     "Acme Ltd",
+     30
+    ],
+    [
+     "Borealis Inc",
+     28
+    ],
+    [
+     "Cobalt GmbH",
+     26
+    ],
+    [
+     "Rivermouth Community Foundation",
+     25
+    ],
+    [
+     "Evergreen Group",
+     24
+    ],
+    [
+     "Fathom Ltd",
+     23
+    ],
+    [
+     "Gadgetron Inc",
+     22
+    ],
+    [
+     "Harbor GmbH",
+     21
+    ],
+    [
+     "Harborlight Charitable Trust",
+     20
+    ]
+   ]
+  },
+  "oracle_result": {
+   "columns": [
+    "customer",
+    "cnt"
+   ],
+   "rows": [
+    [
+     "Acme Ltd",
+     30
+    ],
+    [
+     "Borealis Inc",
+     28
+    ],
+    [
+     "Cobalt GmbH",
+     26
+    ],
+    [
+     "Rivermouth Community Foundation",
+     25
+    ],
+    [
+     "Evergreen Group",
+     24
+    ],
+    [
+     "Fathom Ltd",
+     23
+    ],
+    [
+     "Gadgetron Inc",
+     22
+    ],
+    [
+     "Harbor GmbH",
+     21
+    ],
+    [
+     "Harborlight Charitable Trust",
+     20
+    ],
+    [
+     "Juniper Group",
+     19
+    ]
+   ]
+  },
+  "zh": {
+   "title": "排行榜被 NULL 桶吞掉",
+   "question": "訂單數前十大客戶是誰？散客（無公司名稱）以個人姓名列名。\n",
+   "ambiguity_resolution": "「客戶」指單一客戶實體；散客各自以姓名計、永不合併。計數單位為不重複訂單數，取前十、由高至低。輸出恰好兩欄：客戶顯示名稱、訂單數。\n",
+   "hidden_trap": "散客的 company_name 為 NULL。天真的 GROUP BY company_name 把所有散客聚成一列 NULL，以合計訂單數擠進前十 — 那一列「數字是真的、實體是假的」。\n"
+  }
+ },
+ {
+  "id": "top_n_ties",
+  "category": "top-n-ties",
+  "title": "Top-3 ranking with a tie at third place",
+  "question": "What are the top 3 toy products by total units sold in 2025? Include every product tied with third place.",
+  "ambiguity_resolution": "If several products share the third-highest unit total, all of them belong in the answer. Order by units descending, then product name ascending. Return exactly two columns: product name, units sold.",
+  "hidden_trap": "Two toy products are tied exactly at rank 3 (210 units each). ORDER BY ... LIMIT 3 keeps whichever tied row the engine happens to emit first and silently drops the other — the query is deterministic- looking, the cut is arbitrary.",
+  "naive_sql": "SELECT p.name AS product, SUM(oi.quantity) AS units\nFROM products p\nJOIN order_items oi ON oi.product_id = p.product_id\nJOIN orders o      ON o.order_id = oi.order_id\nWHERE p.category_id = (SELECT category_id FROM categories WHERE name = 'toys')\n  AND o.order_date LIKE '2025-%'\nGROUP BY p.name\nORDER BY units DESC\nLIMIT 3",
+  "oracle_sql": "WITH u AS (\n  SELECT p.name AS product, SUM(oi.quantity) AS units\n  FROM products p\n  JOIN order_items oi ON oi.product_id = p.product_id\n  JOIN orders o      ON o.order_id = oi.order_id\n  WHERE p.category_id = (SELECT category_id FROM categories WHERE name = 'toys')\n    AND o.order_date LIKE '2025-%'\n  GROUP BY p.name\n)\nSELECT product, units FROM u\nWHERE units >= (SELECT units FROM u ORDER BY units DESC LIMIT 1 OFFSET 2)\nORDER BY units DESC, product ASC",
+  "grading": "ordered-set",
+  "naive_result": {
+   "columns": [
+    "product",
+    "units"
+   ],
+   "rows": [
+    [
+     "Dino Toys",
+     260
+    ],
+    [
+     "Puzzle Toys",
+     250
+    ],
+    [
+     "Zoom Toys",
+     210
+    ]
+   ]
+  },
+  "oracle_result": {
+   "columns": [
+    "product",
+    "units"
+   ],
+   "rows": [
+    [
+     "Dino Toys",
+     260
+    ],
+    [
+     "Puzzle Toys",
+     250
+    ],
+    [
+     "Blocky Toys",
+     210
+    ],
+    [
+     "Zoom Toys",
+     210
+    ]
+   ]
+  },
+  "zh": {
+   "title": "第三名平手被 LIMIT 隨手砍掉",
+   "question": "2025 年銷量前三的玩具商品是哪些？與第三名平手的都要列入。\n",
+   "ambiguity_resolution": "若多個商品並列第三，全部列入。依銷量降冪、同量依商品名升冪。恰好兩欄：商品名、銷量。\n",
+   "hidden_trap": "兩個玩具商品恰好並列第三（各 210 件）。ORDER BY ... LIMIT 3 保留引擎先吐出的那一個、悄悄丟掉另一個 — 查詢看似確定，切誰全看引擎心情。\n"
+  }
+ }
+]

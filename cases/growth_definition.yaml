@@ -1,0 +1,70 @@
+# Case: "grew the most" answered with the wrong definition of growth
+id: growth_definition
+category: growth-definition
+title: "Absolute growth question answered with percentage growth"
+
+question: >
+  Which product category had the largest growth in number of orders from
+  2024 to 2025? Growth means the absolute increase in the count of
+  orders containing that category.
+
+ambiguity_resolution: >
+  Growth is defined as (2025 order count) minus (2024 order count),
+  in absolute orders — the question says so explicitly. Output exactly
+  one row: category name and the absolute increase.
+  Return exactly two columns: category name, absolute increase.
+
+hidden_trap: >
+  The data is engineered so the absolute winner and the percentage
+  winner are different categories: electronics grows +18 orders (+15%),
+  garden grows +15 orders (+125%). A model that pattern-matches
+  "growth" to percentage change confidently returns the wrong category
+  — ignoring that the question defined growth two sentences earlier.
+
+naive_sql: |
+  WITH per AS (
+    SELECT c.name AS category,
+           substr(o.order_date, 1, 4) AS y,
+           COUNT(DISTINCT o.order_id) AS cnt
+    FROM categories c
+    JOIN products p    ON p.category_id = c.category_id
+    JOIN order_items oi ON oi.product_id = p.product_id
+    JOIN orders o      ON o.order_id = oi.order_id
+    GROUP BY c.name, y
+  )
+  SELECT a.category,
+         ROUND(100.0 * (b.cnt - a.cnt) / a.cnt, 1) AS growth_pct
+  FROM per a JOIN per b ON b.category = a.category
+  WHERE a.y = '2024' AND b.y = '2025'
+  ORDER BY growth_pct DESC
+  LIMIT 1
+
+oracle:
+  sql: |
+    WITH per AS (
+      SELECT c.name AS category,
+             substr(o.order_date, 1, 4) AS y,
+             COUNT(DISTINCT o.order_id) AS cnt
+      FROM categories c
+      JOIN products p    ON p.category_id = c.category_id
+      JOIN order_items oi ON oi.product_id = p.product_id
+      JOIN orders o      ON o.order_id = oi.order_id
+      GROUP BY c.name, y
+    )
+    SELECT a.category, b.cnt - a.cnt AS growth
+    FROM per a JOIN per b ON b.category = a.category
+    WHERE a.y = '2024' AND b.y = '2025'
+    ORDER BY growth DESC, a.category ASC
+    LIMIT 1
+  grading: ordered-set
+
+failure_modes: [wrong-result]
+
+zh:
+  title: "問絕對成長、答百分比成長"
+  question: >
+    2024 到 2025 訂單數成長最多的產品類別是哪個？成長指含該類別訂單數的絕對增量。
+  ambiguity_resolution: >
+    成長定義為 2025 訂單數減 2024 訂單數（絕對增量）— 題目已明說。輸出恰好一列兩欄：類別名、絕對增量。
+  hidden_trap: >
+    資料刻意讓絕對冠軍與百分比冠軍分家：electronics +18（+15%）、garden +15（+125%）。把「成長」反射成百分比的模型會自信地答錯 — 無視兩句之前的定義。

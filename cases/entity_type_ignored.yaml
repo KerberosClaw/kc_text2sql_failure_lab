@@ -1,0 +1,55 @@
+# Case: "individual customers" defined by the wrong column
+id: entity_type_ignored
+category: entity-semantics
+title: "Individuals leaderboard topped by corporations"
+
+question: >
+  Who are the top 5 individual customers by number of orders?
+  "Individual" means the customer entity itself is a person — see the
+  entity_type codes documented in the schema — not a company's contact
+  person.
+
+ambiguity_resolution: >
+  An individual customer is a row whose entity_type is one of the
+  individual codes (7 or 8). Rank by distinct order count descending,
+  then full_name ascending, exactly 5 rows.
+  Return exactly two columns: customer full name, order count.
+
+hidden_trap: >
+  Every row has full_name populated — for companies and nonprofit
+  organizations it holds the contact person. Using "full_name IS NOT NULL"
+  as the definition of individual returns a leaderboard of corporate
+  contact persons: the top "individuals" are actually the biggest
+  companies and a charitable foundation. The correct discriminator is the
+  entity_type column the schema documents.
+
+naive_sql: |
+  SELECT c.full_name AS customer, COUNT(DISTINCT o.order_id) AS cnt
+  FROM customers c
+  JOIN orders o ON o.customer_id = c.customer_id
+  WHERE c.full_name IS NOT NULL
+  GROUP BY c.full_name
+  ORDER BY cnt DESC
+  LIMIT 5
+
+oracle:
+  sql: |
+    SELECT c.full_name AS customer, COUNT(DISTINCT o.order_id) AS cnt
+    FROM customers c
+    JOIN orders o ON o.customer_id = c.customer_id
+    WHERE c.entity_type IN (7, 8)
+    GROUP BY c.full_name
+    ORDER BY cnt DESC, customer ASC
+    LIMIT 5
+  grading: ordered-set
+
+failure_modes: [wrong-result]
+
+zh:
+  title: "個人排行榜被法人攻頂"
+  question: >
+    訂單數前五大個人客戶是誰？「個人」指客戶實體本身是自然人 — 見 schema 的 entity_type 代碼 — 不是公司的聯絡人。
+  ambiguity_resolution: >
+    個人客戶＝entity_type 為個人代碼（7 或 8）的列。依不重複訂單數降冪、同數依姓名升冪，恰好 5 列。恰好兩欄：客戶姓名、訂單數。
+  hidden_trap: >
+    每一列的 full_name 都有值 — 公司與非營利組織那一格放的是聯絡人。用「full_name 非空」定義個人，回來的是法人聯絡人排行榜：前幾名「個人」其實是最大的幾家公司和一個基金會。正確的判別是 schema 記載的 entity_type 欄位。

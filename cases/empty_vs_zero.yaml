@@ -1,0 +1,54 @@
+# Case: categories with zero orders vanish from the report
+id: empty_vs_zero
+category: empty-vs-zero
+title: "Zero-order category silently missing from a monthly report"
+
+question: >
+  How many orders did each product category have in December 2025?
+  Include categories with zero orders.
+
+ambiguity_resolution: >
+  One row per category — all six categories appear, with 0 for a
+  category that had no December 2025 orders. Ordered by category name
+  ascending.
+  Return exactly two columns: category name, order count.
+
+hidden_trap: >
+  The books category has no orders in December 2025. An inner-join
+  pipeline can only count rows that exist, so books simply disappears
+  from the output — five rows instead of six, and nobody notices the
+  silence. "No rows" and "zero" are different answers.
+
+naive_sql: |
+  SELECT c.name AS category, COUNT(DISTINCT o.order_id) AS cnt
+  FROM categories c
+  JOIN products p    ON p.category_id = c.category_id
+  JOIN order_items oi ON oi.product_id = p.product_id
+  JOIN orders o      ON o.order_id = oi.order_id
+  WHERE o.order_date LIKE '2025-12-%'
+  GROUP BY c.name
+  ORDER BY category ASC
+
+oracle:
+  sql: |
+    SELECT c.name AS category,
+           (SELECT COUNT(DISTINCT o.order_id)
+            FROM orders o
+            JOIN order_items oi ON oi.order_id = o.order_id
+            JOIN products p     ON p.product_id = oi.product_id
+            WHERE p.category_id = c.category_id
+              AND o.order_date LIKE '2025-12-%') AS cnt
+    FROM categories c
+    ORDER BY category ASC
+  grading: ordered-set
+
+failure_modes: [wrong-result]
+
+zh:
+  title: "零訂單的類別從月報上消失"
+  question: >
+    2025 年 12 月各產品類別有多少張訂單？包含零訂單的類別。
+  ambiguity_resolution: >
+    每類別一列 — 六個類別全部出現，該月無訂單者為 0。依類別名升冪。恰好兩欄：類別名、訂單數。
+  hidden_trap: >
+    books 在 2025 年 12 月沒有任何訂單。INNER JOIN 管線只數得到存在的列，books 整列消失 — 五列而不是六列，沒有人注意到那個沉默。「沒有列」和「值為零」是兩個不同的答案。

@@ -1,0 +1,84 @@
+{
+  "provider": "mock-naive",
+  "model": "mock-naive",
+  "prompt_hash": "9398ba032262",
+  "summary": {
+    "pass": 0,
+    "fail": 8,
+    "total": 8
+  },
+  "cases": [
+    {
+      "id": "empty_vs_zero",
+      "category": "empty-vs-zero",
+      "title": "Zero-order category silently missing from a monthly report",
+      "sql": "SELECT c.name AS category, COUNT(DISTINCT o.order_id) AS cnt\nFROM categories c\nJOIN products p    ON p.category_id = c.category_id\nJOIN order_items oi ON oi.product_id = p.product_id\nJOIN orders o      ON o.order_id = oi.order_id\nWHERE o.order_date LIKE '2025-12-%'\nGROUP BY c.name\nORDER BY category ASC\n",
+      "status": "wrong-result",
+      "rows_returned": 5,
+      "latency_ms": 1
+    },
+    {
+      "id": "entity_type_ignored",
+      "category": "entity-semantics",
+      "title": "Individuals leaderboard topped by corporations",
+      "sql": "SELECT c.full_name AS customer, COUNT(DISTINCT o.order_id) AS cnt\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nWHERE c.full_name IS NOT NULL\nGROUP BY c.full_name\nORDER BY cnt DESC\nLIMIT 5\n",
+      "status": "wrong-result",
+      "rows_returned": 5,
+      "latency_ms": 1
+    },
+    {
+      "id": "enum_code_guess",
+      "category": "value-domain",
+      "title": "Guessed entity_type code returns zero rows dressed as an answer",
+      "sql": "SELECT COUNT(DISTINCT o.order_id) AS cnt\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nWHERE c.entity_type = 1\n  AND o.order_date LIKE '2025-%'\n",
+      "status": "wrong-result",
+      "rows_returned": 1,
+      "latency_ms": 0
+    },
+    {
+      "id": "growth_definition",
+      "category": "growth-definition",
+      "title": "Absolute growth question answered with percentage growth",
+      "sql": "WITH per AS (\n  SELECT c.name AS category,\n         substr(o.order_date, 1, 4) AS y,\n         COUNT(DISTINCT o.order_id) AS cnt\n  FROM categories c\n  JOIN products p    ON p.category_id = c.category_id\n  JOIN order_items oi ON oi.product_id = p.product_id\n  JOIN orders o      ON o.order_id = oi.order_id\n  GROUP BY c.name, y\n)\nSELECT a.category,\n       ROUND(100.0 * (b.cnt - a.cnt) / a.cnt, 1) AS growth_pct\nFROM per a JOIN per b ON b.category = a.category\nWHERE a.y = '2024' AND b.y = '2025'\nORDER BY growth_pct DESC\nLIMIT 1\n",
+      "status": "wrong-result",
+      "rows_returned": 1,
+      "latency_ms": 1
+    },
+    {
+      "id": "join_fanout_count",
+      "category": "join-fanout",
+      "title": "Order counts inflated by item-level JOIN fan-out",
+      "sql": "SELECT c.name AS category, COUNT(o.order_id) AS cnt\nFROM categories c\nJOIN products p    ON p.category_id = c.category_id\nJOIN order_items oi ON oi.product_id = p.product_id\nJOIN orders o      ON o.order_id = oi.order_id\nWHERE o.order_date LIKE '2025-%'\nGROUP BY c.name\nORDER BY cnt DESC, category ASC\n",
+      "status": "wrong-result",
+      "rows_returned": 6,
+      "latency_ms": 0
+    },
+    {
+      "id": "missing_period",
+      "category": "missing-period",
+      "title": "Monthly trend missing the month that had nothing",
+      "sql": "SELECT substr(o.order_date, 1, 7) AS month,\n       COUNT(DISTINCT o.order_id) AS cnt\nFROM orders o\nJOIN order_items oi ON oi.order_id = o.order_id\nJOIN products p     ON p.product_id = oi.product_id\nWHERE p.category_id = (SELECT category_id FROM categories WHERE name = 'garden')\n  AND o.order_date LIKE '2025-%'\nGROUP BY month\nORDER BY month ASC\n",
+      "status": "wrong-result",
+      "rows_returned": 11,
+      "latency_ms": 1
+    },
+    {
+      "id": "null_bucket_ranking",
+      "category": "null-semantics",
+      "title": "Top customers ranking swallowed by a NULL bucket",
+      "sql": "SELECT c.company_name AS customer, COUNT(DISTINCT o.order_id) AS cnt\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nGROUP BY c.company_name\nORDER BY cnt DESC\nLIMIT 10\n",
+      "status": "wrong-result",
+      "rows_returned": 10,
+      "latency_ms": 0
+    },
+    {
+      "id": "top_n_ties",
+      "category": "top-n-ties",
+      "title": "Top-3 ranking with a tie at third place",
+      "sql": "SELECT p.name AS product, SUM(oi.quantity) AS units\nFROM products p\nJOIN order_items oi ON oi.product_id = p.product_id\nJOIN orders o      ON o.order_id = oi.order_id\nWHERE p.category_id = (SELECT category_id FROM categories WHERE name = 'toys')\n  AND o.order_date LIKE '2025-%'\nGROUP BY p.name\nORDER BY units DESC\nLIMIT 3\n",
+      "status": "wrong-result",
+      "rows_returned": 3,
+      "latency_ms": 0
+    }
+  ]
+}

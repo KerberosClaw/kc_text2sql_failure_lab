@@ -1,0 +1,58 @@
+# Case: LIMIT quietly drops a product tied at the boundary
+id: top_n_ties
+category: top-n-ties
+title: "Top-3 ranking with a tie at third place"
+
+question: >
+  What are the top 3 toy products by total units sold in 2025? Include
+  every product tied with third place.
+
+ambiguity_resolution: >
+  If several products share the third-highest unit total, all of them
+  belong in the answer. Order by units descending, then product name
+  ascending.
+  Return exactly two columns: product name, units sold.
+
+hidden_trap: >
+  Two toy products are tied exactly at rank 3 (210 units each).
+  ORDER BY ... LIMIT 3 keeps whichever tied row the engine happens to
+  emit first and silently drops the other — the query is deterministic-
+  looking, the cut is arbitrary.
+
+naive_sql: |
+  SELECT p.name AS product, SUM(oi.quantity) AS units
+  FROM products p
+  JOIN order_items oi ON oi.product_id = p.product_id
+  JOIN orders o      ON o.order_id = oi.order_id
+  WHERE p.category_id = (SELECT category_id FROM categories WHERE name = 'toys')
+    AND o.order_date LIKE '2025-%'
+  GROUP BY p.name
+  ORDER BY units DESC
+  LIMIT 3
+
+oracle:
+  sql: |
+    WITH u AS (
+      SELECT p.name AS product, SUM(oi.quantity) AS units
+      FROM products p
+      JOIN order_items oi ON oi.product_id = p.product_id
+      JOIN orders o      ON o.order_id = oi.order_id
+      WHERE p.category_id = (SELECT category_id FROM categories WHERE name = 'toys')
+        AND o.order_date LIKE '2025-%'
+      GROUP BY p.name
+    )
+    SELECT product, units FROM u
+    WHERE units >= (SELECT units FROM u ORDER BY units DESC LIMIT 1 OFFSET 2)
+    ORDER BY units DESC, product ASC
+  grading: ordered-set
+
+failure_modes: [wrong-result]
+
+zh:
+  title: "第三名平手被 LIMIT 隨手砍掉"
+  question: >
+    2025 年銷量前三的玩具商品是哪些？與第三名平手的都要列入。
+  ambiguity_resolution: >
+    若多個商品並列第三，全部列入。依銷量降冪、同量依商品名升冪。恰好兩欄：商品名、銷量。
+  hidden_trap: >
+    兩個玩具商品恰好並列第三（各 210 件）。ORDER BY ... LIMIT 3 保留引擎先吐出的那一個、悄悄丟掉另一個 — 查詢看似確定，切誰全看引擎心情。
