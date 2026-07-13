@@ -1,6 +1,6 @@
 # The Failure Atlas — a Taxonomy of Semantic Traps
 
-> **Summary (EN):** Eight reproducible cases across eight trap families,
+> **Summary (EN):** Nine reproducible cases across nine trap families,
 > every one executable and every one wrong. Each entry follows the same
 > anatomy: an innocent question, a hidden assumption in the data, a
 > naive-but-plausible SQL answer, and a result-level oracle. Browse them
@@ -23,7 +23,7 @@
 | `naive_sql` | 看似合理、可執行、錯的答案 — 週五下午會過 review 的那種 |
 | `oracle` | 結果級標準答案＋判分模式（不比 SQL 字串） |
 
-## 八個家族（v1）
+## 九個家族（v1.1）
 
 | 案例 | 家族 | 陷阱一句話 |
 |---|---|---|
@@ -35,6 +35,7 @@
 | `missing_period` | missing-period | 缺單月的趨勢少一列，圖看起來完整、下游平均全歪 |
 | `entity_type_ignored` | entity-semantics | 法人列的聯絡人欄也有人名 —「姓名非空」不是「個人」的正確定義 |
 | `enum_code_guess` | value-domain | 猜 enum 代碼 `= 1`（不存在）→ 回 0 列，看起來像「查無資料」的正經答案 |
+| `scope_predicate_drop` | scope-predicate | 「高價值訂單」沒有乾淨欄位可過濾，弱模型把整段範圍過濾丟掉、改數全年 399 筆 |
 
 ## 兩個設計原則
 
@@ -47,6 +48,15 @@
 **陷阱住在資料裡，不住在題目裡。** 題目與消歧句把「對」定義到唯一；
 會不會踩雷取決於模型有沒有正確理解資料形狀。這也是為什麼 `make db`
 的生成器逐一保證每個陷阱的前置條件，測試套件會驗（`tests/`）。
+
+**補述：有些家族專門暴露「條件補全」能力的差異。** 多數家族連強模型
+都可能中招；但 `scope_predicate_drop` 這類的病灶是**模型能力相依**的 —
+題目要求的範圍限定詞（「高價值訂單」）在 schema 裡沒有乾淨欄位可對應，
+必須自己 join＋加總＋過濾把謂詞「造」出來。這仍守住「陷阱住在資料裡」：
+沒有 order-total 欄位是資料形狀的事實，省略過濾對所有模型都是誘惑；只是
+弱模型更容易放棄造謂詞、默默退化成回答全體統計，而且**不報錯**（比語法
+錯更隱蔽 — 語法錯看得到，這個看不到）。成績單上這一格因此特別能拉開強
+弱模型的分層。
 
 ## 擴充路線（v2 候選）
 

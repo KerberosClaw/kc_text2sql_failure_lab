@@ -65,6 +65,7 @@ tr.diff td { background: var(--bad-soft); }
 .score td.case-name, .score th.case-name { text-align: left; font-family: var(--mono); font-size: 12px; }
 .cell-pass { color: var(--good); background: var(--good-soft); font-weight: 700; }
 .cell-fail { color: var(--bad); background: var(--bad-soft); font-weight: 700; }
+.cell-skip { color: var(--ink-3); background: var(--surface-2); }
 .score tfoot td { font-weight: 700; background: var(--surface-2); }
 .hint { color: var(--ink-3); font-size: 13px; }
 .loading { color: var(--ink-3); }

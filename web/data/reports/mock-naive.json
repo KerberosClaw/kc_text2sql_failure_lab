@@ -4,8 +4,8 @@
   "prompt_hash": "9398ba032262",
   "summary": {
     "pass": 0,
-    "fail": 8,
-    "total": 8
+    "fail": 9,
+    "total": 9
   },
   "cases": [
     {
@@ -15,7 +15,7 @@
       "sql": "SELECT c.name AS category, COUNT(DISTINCT o.order_id) AS cnt\nFROM categories c\nJOIN products p    ON p.category_id = c.category_id\nJOIN order_items oi ON oi.product_id = p.product_id\nJOIN orders o      ON o.order_id = oi.order_id\nWHERE o.order_date LIKE '2025-12-%'\nGROUP BY c.name\nORDER BY category ASC\n",
       "status": "wrong-result",
       "rows_returned": 5,
-      "latency_ms": 1
+      "latency_ms": 2
     },
     {
       "id": "entity_type_ignored",
@@ -24,7 +24,7 @@
       "sql": "SELECT c.full_name AS customer, COUNT(DISTINCT o.order_id) AS cnt\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nWHERE c.full_name IS NOT NULL\nGROUP BY c.full_name\nORDER BY cnt DESC\nLIMIT 5\n",
       "status": "wrong-result",
       "rows_returned": 5,
-      "latency_ms": 1
+      "latency_ms": 0
     },
     {
       "id": "enum_code_guess",
@@ -69,6 +69,15 @@
       "sql": "SELECT c.company_name AS customer, COUNT(DISTINCT o.order_id) AS cnt\nFROM customers c\nJOIN orders o ON o.customer_id = c.customer_id\nGROUP BY c.company_name\nORDER BY cnt DESC\nLIMIT 10\n",
       "status": "wrong-result",
       "rows_returned": 10,
+      "latency_ms": 0
+    },
+    {
+      "id": "scope_predicate_drop",
+      "category": "scope-predicate",
+      "title": "High-value scope filter dropped, the whole year counted",
+      "sql": "SELECT COUNT(*) AS cnt\nFROM orders\nWHERE order_date LIKE '2025-%'\n",
+      "status": "wrong-result",
+      "rows_returned": 1,
       "latency_ms": 0
     },
     {

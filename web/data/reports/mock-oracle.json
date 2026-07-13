@@ -3,9 +3,9 @@
   "model": "mock-oracle",
   "prompt_hash": "9398ba032262",
   "summary": {
-    "pass": 8,
+    "pass": 9,
     "fail": 0,
-    "total": 8
+    "total": 9
   },
   "cases": [
     {
@@ -51,7 +51,7 @@
       "sql": "SELECT c.name AS category, COUNT(DISTINCT o.order_id) AS cnt\nFROM categories c\nJOIN products p    ON p.category_id = c.category_id\nJOIN order_items oi ON oi.product_id = p.product_id\nJOIN orders o      ON o.order_id = oi.order_id\nWHERE o.order_date LIKE '2025-%'\nGROUP BY c.name\nORDER BY cnt DESC, category ASC\n",
       "status": "pass",
       "rows_returned": 6,
-      "latency_ms": 1
+      "latency_ms": 0
     },
     {
       "id": "missing_period",
@@ -70,6 +70,15 @@
       "status": "pass",
       "rows_returned": 10,
       "latency_ms": 1
+    },
+    {
+      "id": "scope_predicate_drop",
+      "category": "scope-predicate",
+      "title": "High-value scope filter dropped, the whole year counted",
+      "sql": "WITH order_totals AS (\n  SELECT o.order_id, SUM(oi.quantity * p.price) AS total\n  FROM orders o\n  JOIN order_items oi ON oi.order_id = o.order_id\n  JOIN products p     ON p.product_id = oi.product_id\n  WHERE o.order_date LIKE '2025-%'\n  GROUP BY o.order_id\n)\nSELECT COUNT(*) AS cnt\nFROM order_totals\nWHERE total > 500\n",
+      "status": "pass",
+      "rows_returned": 1,
+      "latency_ms": 0
     },
     {
       "id": "top_n_ties",

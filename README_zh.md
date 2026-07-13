@@ -38,14 +38,23 @@ make test      # 實驗室先給自己打分，才輪得到別人
 FLAB_MODEL=gpt-5.5 FLAB_API_KEY=sk-... make eval-model
 ```
 
+不用端點、不用 key — 直接把你終端機在跑的 agent CLI 當模型打分：
+
+```bash
+FLAB_CLI_CMD="codex exec" FLAB_MODEL=codex make eval-cli   # 或 "claude -p"
+```
+
 ## 目前成績單
 
 | 模型 | 得分 | 踩了什麼 |
 |---|---|---|
-| mock-naive | 0/8 | 全部，依合約辦事 |
-| gpt-5.4-nano（低推理） | 6/8 | 消失的零訂單類別、「成長」的兩種定義 |
-| gpt-5.5（高推理） | 8/8 | — |
-| mock-oracle | 8/8 | — |
+| mock-naive | 0/9 | 全部，依合約辦事 |
+| gpt-5.4-nano（低推理） | 6/8 * | 消失的零訂單類別、「成長」的兩種定義 |
+| gpt-5.5（高推理） | 8/8 * | — |
+| gpt-5.6-sol（經 `codex`） | 9/9 | — |
+| mock-oracle | 9/9 | — |
+
+\* `gpt-5.4-nano` / `gpt-5.5` 兩個雲端跑分是在原本的八個家族上量的；第九個（`scope_predicate_drop`）是後加的，尚未對它們重跑。`gpt-5.6-sol` 是經本地 agent CLI（`codex exec`、不需 API key）對全部九案的一次全新跑分 — 用 `make eval-cli` 可重現。它正確地把高價值謂詞推導了出來（`HAVING SUM(數量 × 單價) > 500`）而非丟掉，這正是第九家族要暴露的強弱分野。
 
 我們自己首跑的趣聞：旗艦模型一開始「掛」了三題，驗屍發現三題全是**我們評測規格的洞**、不是模型的錯。那個故事和它帶來的修正，寫在 [docs/03_trustworthy_eval.md](docs/03_trustworthy_eval.md)。
 
@@ -56,14 +65,14 @@ FLAB_MODEL=gpt-5.5 FLAB_API_KEY=sk-... make eval-model
 ## 文件
 
 - [01 — 安全邊界：護欄到哪裡為止](docs/01_security_boundary.md)
-- [02 — 失敗圖鑑：八個陷阱家族](docs/02_failure_atlas.md)
+- [02 — 失敗圖鑑：九個陷阱家族](docs/02_failure_atlas.md)
 - [03 — 可信評測：評測要先考過自己](docs/03_trustworthy_eval.md)
 - [SECURITY.md](SECURITY.md) — 護欄承諾什麼、不承諾什麼
 - [DESIGN.md](DESIGN.md) — 完整設計
 
 ## 狀態
 
-可運作的實驗室：8 個案例、埋好陷阱的種子資料庫、會自我驗證的判分器、真模型成績單、靜態展廊。分類學開放擴充，歡迎自帶資料層陷阱與無歧義判分規則的新家族。陷阱現在負責承重了。
+可運作的實驗室：9 個案例、埋好陷阱的種子資料庫、會自我驗證的判分器、真模型成績單、靜態展廊。分類學開放擴充，歡迎自帶資料層陷阱與無歧義判分規則的新家族。陷阱現在負責承重了。
 
 ## 授權
 

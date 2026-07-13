@@ -38,14 +38,23 @@ Score a real model (anything OpenAI-compatible, local Ollama included):
 FLAB_MODEL=gpt-5.5 FLAB_API_KEY=sk-... make eval-model
 ```
 
+No endpoint, no key — score whatever agent CLI you already run in a terminal:
+
+```bash
+FLAB_CLI_CMD="codex exec" FLAB_MODEL=codex make eval-cli   # or "claude -p"
+```
+
 ## Current scoreboard
 
 | model | score | fell into |
 |---|---|---|
-| mock-naive | 0/8 | everything, as contractually obligated |
-| gpt-5.4-nano (low reasoning) | 6/8 | the vanishing zero-order category, the two definitions of "growth" |
-| gpt-5.5 (high reasoning) | 8/8 | — |
-| mock-oracle | 8/8 | — |
+| mock-naive | 0/9 | everything, as contractually obligated |
+| gpt-5.4-nano (low reasoning) | 6/8 * | the vanishing zero-order category, the two definitions of "growth" |
+| gpt-5.5 (high reasoning) | 8/8 * | — |
+| gpt-5.6-sol (via `codex`) | 9/9 | — |
+| mock-oracle | 9/9 | — |
+
+\* The two `gpt-5.4-nano` / `gpt-5.5` cloud runs were scored on the original eight families; the ninth (`scope_predicate_drop`) is a later addition and has not been re-scored against them. `gpt-5.6-sol` is a fresh run over all nine through a local agent CLI (`codex exec`, no API key) — reproduce it with `make eval-cli`. It derived the high-value predicate correctly (`HAVING SUM(quantity * price) > 500`) rather than dropping it, which is exactly the strong-vs-weak split the ninth family is built to expose.
 
 Fun fact from our own first run: the flagship initially "failed" three cases, and the autopsy showed all three were bugs in *our* eval spec, not in the model. That story — and what changed because of it — is in [docs/03_trustworthy_eval.md](docs/03_trustworthy_eval.md).
 
@@ -56,14 +65,14 @@ Because the framework lane is already crowded, and the more useful question is n
 ## Docs
 
 - [01 — The security boundary: where guardrails stop](docs/01_security_boundary.md)
-- [02 — The failure atlas: eight trap families](docs/02_failure_atlas.md)
+- [02 — The failure atlas: nine trap families](docs/02_failure_atlas.md)
 - [03 — Trustworthy eval: the eval must pass its own eval](docs/03_trustworthy_eval.md)
 - [SECURITY.md](SECURITY.md) — what the guardrails do and do not promise
 - [DESIGN.md](DESIGN.md) — full build spec
 
 ## Status
 
-Working lab: 8 cases, a seeded trap database, a self-validating grader, real-model scorecards, and a static gallery. The taxonomy is open — new trap families welcome, as long as they arrive with a data-level trap and an unambiguous grading rule. The traps are load-bearing now.
+Working lab: 9 cases, a seeded trap database, a self-validating grader, real-model scorecards, and a static gallery. The taxonomy is open — new trap families welcome, as long as they arrive with a data-level trap and an unambiguous grading rule. The traps are load-bearing now.
 
 ## License
 

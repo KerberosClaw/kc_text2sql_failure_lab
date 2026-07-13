@@ -146,7 +146,7 @@ def export_web() -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description="failure-lab runner")
     ap.add_argument("--provider", default="mock-naive",
-                    choices=["mock-naive", "mock-oracle", "openai"])
+                    choices=["mock-naive", "mock-oracle", "openai", "cli"])
     ap.add_argument("--export-web", action="store_true",
                     help="rebuild web/data from cases and existing reports")
     args = ap.parse_args()

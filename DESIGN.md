@@ -56,6 +56,7 @@ failure_modes: [wrong-result]    # 此案例預期的失敗形態
 | `missing-period` | 時間序列缺月／缺期，趨勢與平均被扭曲 | ✅ |
 | `entity-semantics` | 實體型別欄被忽略 —「姓名非空」不等於「個人」 | ✅ |
 | `value-domain` | enum 代碼／值域字面靠猜 — 0 列偽裝成「查無資料」 | ✅ |
+| `scope-predicate` | 範圍限定詞無乾淨欄位可對應，模型省略整段過濾、退化成全體統計 | ✅ |
 | `aggregation-grain` | 聚合粒度錯置（訂單級 vs 明細級） | v2 |
 | `time-boundary` | 半開區間 vs 閉區間、時區、年界 | v2 |
 | `unit-confusion` | 金額含稅／未稅、幣別、單位 | v2 |
@@ -104,8 +105,8 @@ providers:
 | 里程碑 | 內容 | 驗收 |
 |---|---|---|
 | M1 骨架 | 本設計、case schema、README | ✅ 完成 |
-| M2 核心 | db_gen ＋ 8 案例 ＋ grader ＋ 雙 mock（provider 環境變數：`FLAB_BASE_URL/API_KEY/MODEL/REASONING_EFFORT`） | ✅ CI 綠：naive 全紅、oracle 全綠（14 tests） |
-| M3 真模型 | openai-compat provider ＋ 報告 JSON | ✅ 兩個雲端模型實跑（8/8 與 6/8，含首跑驗屍修規格） |
+| M2 核心 | db_gen ＋ 9 案例 ＋ grader ＋ 雙 mock（provider 環境變數：`FLAB_BASE_URL/API_KEY/MODEL/REASONING_EFFORT`） | ✅ CI 綠：naive 全紅、oracle 全綠（16 tests） |
+| M3 真模型 | openai-compat ＋ cli（codex／claude -p）provider ＋ 報告 JSON | ✅ 雲端 gpt-5.x（原 8 家族）＋ gpt-5.6-sol 經 codex CLI 全 9 案實跑 |
 | M4 展廊 | web/ 三視圖 | ✅ 瀏覽器實測（案例牆／案例頁／成績單矩陣） |
 | M5 內容 | 文件三篇、SECURITY、zh 版、README 定稿 | ✅ 完成 |
 | M6 公開 | 乾淨歷史重發 public、啟 Pages | ⏳ 發佈 gate（另冊管理）全勾後執行 |

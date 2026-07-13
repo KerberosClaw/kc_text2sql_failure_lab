@@ -31,6 +31,16 @@ enum_code_guess     : entity_type codes are 3/5/7/8 (documented in the
                       `entity_type = 1` returns zero rows that look like
                       "no data". entity_type IN (7,8) coincides exactly
                       with company_name IS NULL (cross-check invariant).
+scope_predicate_drop: a small premium tier of products (PREMIUM_PIDS) is
+                      priced far above the rest (900 vs <=30), so an order's
+                      *total* value (sum of quantity*price) crosses the
+                      high-value line (> 500) whenever it contains a premium
+                      item. 47 of the 399 orders in 2025 clear the line: 46
+                      from this premium tier, plus the single outsized
+                      top_n_ties host order (hundreds of toy units), which is
+                      high-value in its own right. There is no order-total
+                      column, so the scope filter has to be derived — a weak
+                      model drops it and counts all 399 instead.
 """
 from __future__ import annotations
 
@@ -106,6 +116,22 @@ PRODUCT_WORDS = {
     "garden":      ["Bloom", "Sprout", "Terra", "Fern", "Rake"],
 }
 
+# scope_predicate_drop: a handful of products sit in a premium price tier far
+# above every other product. Products are numbered 1..30 in the category order
+# above (5 per category), so these ids are Loft Furniture / Daily Groceries /
+# Chapter Books — one premium item in each of three categories. An order's
+# total value clears HIGH_VALUE_THRESHOLD *only* if it contains one of them, so
+# "high-value" is a derived predicate with no clean column to filter on. Kept
+# out of the categories that carry other traps (electronics/garden growth,
+# toys ties) so nothing entangles. Regular prices stay in [4, 30] so an
+# ordinary order (<=3 items, qty<=4) tops out at 360, well under the 500 line;
+# the only non-premium order that clears it is the top_n_ties host, padded
+# with hundreds of toy units. Everything else is either <=360 or >=900, so the
+# 500 threshold sits in a clean gap.
+PREMIUM_PIDS = {8, 12, 24}
+PREMIUM_PRICE = 900.0
+HIGH_VALUE_THRESHOLD = 500       # any value in (360, 900) is equivalent
+
 
 def _month_weights(category: str, year: int) -> list[int]:
     """12 relative weights; trap months get weight 0."""
@@ -147,7 +173,10 @@ def build(conn: sqlite3.Connection) -> None:
     for cid, cat in enumerate(CATEGORIES, start=1):
         for word in PRODUCT_WORDS[cat]:
             pid += 1
-            price = round(rng.uniform(4, 400), 2)
+            # Draw for every product so the RNG stream is unchanged; premium
+            # products then override the draw (scope_predicate_drop).
+            regular = round(rng.uniform(4, 30), 2)
+            price = PREMIUM_PRICE if pid in PREMIUM_PIDS else regular
             cur.execute("INSERT INTO products VALUES (?, ?, ?, ?)",
                         (pid, f"{word} {cat.title()}", cid, price))
             products_by_cat[cat].append(pid)
