@@ -6,6 +6,7 @@ import pytest
 
 from failure_lab import db_gen, runner
 from failure_lab.guard import GuardError, guard
+from failure_lab.providers import _extract_sql
 
 
 @pytest.fixture(scope="session")
@@ -145,6 +146,27 @@ def test_guard_rejects(bad):
 def test_guard_allows_select_and_cte():
     guard("SELECT 1")
     guard("WITH t AS (SELECT 1 AS x) SELECT x FROM t")
+
+
+# --- cli provider fenced-SQL extraction ------------------------------------
+
+def test_cli_extraction_ignores_prompt_echo():
+    # An agent CLI that echoes the prompt (which itself mentions a ```sql
+    # fence mid-sentence), colours output with ANSI, then answers, then adds a
+    # trailing usage note. Only the real line-anchored fence must be picked.
+    out = (
+        "\x1b[36muser\x1b[0m\n"
+        "Rules:\n- Output exactly one SELECT inside a ```sql fence.\n\n"
+        "\x1b[35mcodex\x1b[0m\n"
+        "```sql\nSELECT COUNT(*) FROM orders;\n```\n"
+        "tokens used 123\n"
+    )
+    assert _extract_sql(out) == "SELECT COUNT(*) FROM orders;"
+
+
+def test_cli_extraction_prefers_labelled_over_trailing_block():
+    out = "```sql\nSELECT 1;\n```\n\nnote:\n```\nnot sql at all\n```\n"
+    assert _extract_sql(out) == "SELECT 1;"
 
 
 # --- report hygiene ---------------------------------------------------------

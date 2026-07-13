@@ -129,10 +129,14 @@ def export_web() -> None:
         json.dumps(payload, indent=1, ensure_ascii=False))
     reports_out = WEB_DATA / "reports"
     reports_out.mkdir(exist_ok=True)
-    index = []
     for rp in sorted(REPORTS_DIR.glob("*.json")):
         shutil.copy(rp, reports_out / rp.name)
-        index.append(rp.name)
+    # Index the union already in web/data/reports/: freshly generated reports
+    # plus the tracked real-model scorecards, which reports/ (gitignored) does
+    # not carry on a clean checkout. Building the index only from reports/
+    # would silently drop every real model from the gallery on a plain
+    # `make eval`.
+    index = sorted(p.name for p in reports_out.glob("*.json"))
     (WEB_DATA / "reports_index.json").write_text(json.dumps(index))
     print(f"web data exported -> {WEB_DATA.relative_to(ROOT)} "
           f"({len(payload)} cases, {len(index)} reports)")

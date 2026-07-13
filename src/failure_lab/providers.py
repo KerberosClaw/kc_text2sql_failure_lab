@@ -101,13 +101,21 @@ class OpenAICompat:
 
 
 # Agent CLIs echo the prompt and wrap output in ANSI colour, and our prompt
-# literally mentions a "```sql fence" — so the loose first-fence regex above
-# would grab the echoed instruction. Strip ANSI, then take the LAST fenced
-# block whose opening fence is followed by a newline (the echoed inline mention
-# is "```sql fence ...", no newline, so it never matches). The model's answer
-# is the last such block.
+# literally mentions a "```sql fence" — so a loose first-fence regex would grab
+# the echoed instruction. Anchor fences to the START of a line: the echoed
+# mention is always mid-sentence ("... inside a ```sql fence."), so it can
+# never be mistaken for a real fence, wrapped or not. Prefer the last block
+# explicitly labelled sql; fall back to the last fenced block of any kind;
+# then the raw text.
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
-_FENCE = re.compile(r"```(?:sql)?[ \t]*\r?\n(.+?)```", re.S | re.I)
+_FENCE_SQL = re.compile(r"(?ms)^```sql\b[^\n]*\n(.*?)^```", re.I)
+_FENCE_ANY = re.compile(r"(?ms)^```[^\n]*\n(.*?)^```")
+
+
+def _extract_sql(raw: str) -> str:
+    text = _ANSI.sub("", raw)
+    blocks = _FENCE_SQL.findall(text) or _FENCE_ANY.findall(text)
+    return (blocks[-1] if blocks else text).strip()
 
 
 class CliModel:
@@ -136,9 +144,7 @@ class CliModel:
         if proc.returncode != 0:
             raise ProviderError(
                 f"cli exited {proc.returncode}: {proc.stderr.strip()[:200]}")
-        text = _ANSI.sub("", proc.stdout)
-        blocks = _FENCE.findall(text)
-        sql = (blocks[-1] if blocks else text).strip()
+        sql = _extract_sql(proc.stdout)
         if not sql:
             raise ProviderError("empty completion")
         return sql

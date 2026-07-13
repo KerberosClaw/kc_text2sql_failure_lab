@@ -17,12 +17,12 @@ hidden_trap: >
   There is no order-total column. "High-value" has to be derived — join
   order_items to products, sum quantity × price per order, then filter. A
   model that can't or won't build that derived predicate quietly drops the
-  "high-value" qualifier and counts every 2025 order instead: 399 rows, an
-  order of magnitude above the 47 that actually clear the line. The query
-  runs, returns a plausible number, and answers a wider question than the one
-  that was asked. What makes an order high-value is a small premium-priced
-  product tier, not any category or status the schema exposes — so the filter
-  cannot be faked with a plain column, it has to be computed.
+  "high-value" qualifier and counts every 2025 order instead — 399, about 8x
+  the 47 that actually clear the line. The query runs, returns a plausible
+  number, and answers a wider question than the one that was asked. What
+  pushes an order over the line is a small premium-priced product tier, not
+  any category or status the schema exposes — so the filter cannot be faked
+  with a plain column, it has to be computed.
 
 naive_sql: |
   SELECT COUNT(*) AS cnt
@@ -53,4 +53,4 @@ zh:
   ambiguity_resolution: >
     每筆 2025 訂單的總額＝該訂單各品項 SUM(order_items.quantity × products.price)，再數出總額嚴格大於 500 的不重複訂單數。回傳單一數字：一列一欄。
   hidden_trap: >
-    沒有「訂單總額」這個欄位。「高價值」必須自己推導 — join order_items 與 products、逐訂單加總 數量 × 單價、再過濾。造不出（或不願造）這個衍生謂詞的模型，會默默把「高價值」這個限定詞整段丟掉、改數全部 2025 訂單：399 筆，比真正過線的 47 筆多了一個數量級。SQL 照跑、回一個看似合理的數字，答的卻是比題目更寬的問題。讓訂單變「高價值」的是一小撮 premium 高價產品，而不是 schema 裡任何類別或狀態欄，所以這個過濾沒辦法用乾淨欄位假冒 — 只能算出來。
+    沒有「訂單總額」這個欄位。「高價值」必須自己推導 — join order_items 與 products、逐訂單加總 數量 × 單價、再過濾。造不出（或不願造）這個衍生謂詞的模型，會默默把「高價值」這個限定詞整段丟掉、改數全部 2025 訂單：399 筆，約是真正過線的 47 筆的 8 倍。SQL 照跑、回一個看似合理的數字，答的卻是比題目更寬的問題。把訂單推過門檻的是一小撮 premium 高價產品，而不是 schema 裡任何類別或狀態欄，所以這個過濾沒辦法用乾淨欄位假冒 — 只能算出來。

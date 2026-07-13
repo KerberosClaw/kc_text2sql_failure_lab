@@ -76,8 +76,10 @@ Taxonomy 開放擴充（歡迎 PR 的設計），數量不固定。
 providers:
   mock-naive    # 內建：回 cases/*.yaml 的 naive_sql — 全紅
   mock-oracle   # 內建：回 oracle 結果 — 全綠
-  openai-compat # 唯一真模型介面：base_url + api_key + model
+  openai-compat # 真模型介面：base_url + api_key + model
                 # （雲端 API 與本地 Ollama /v1 通吃）
+  cli           # 真模型介面：把本機 agent CLI（codex／claude -p）當模型
+                # FLAB_CLI_CMD + FLAB_MODEL — 免 API key、免端點
 ```
 
 - 判分器自驗：CI 斷言 `mock-naive` 全 fail、`mock-oracle` 全 pass — 評測先評自己。
@@ -105,7 +107,7 @@ providers:
 | 里程碑 | 內容 | 驗收 |
 |---|---|---|
 | M1 骨架 | 本設計、case schema、README | ✅ 完成 |
-| M2 核心 | db_gen ＋ 9 案例 ＋ grader ＋ 雙 mock（provider 環境變數：`FLAB_BASE_URL/API_KEY/MODEL/REASONING_EFFORT`） | ✅ CI 綠：naive 全紅、oracle 全綠（16 tests） |
+| M2 核心 | db_gen ＋ 9 案例 ＋ grader ＋ 雙 mock（provider 環境變數：`FLAB_BASE_URL/API_KEY/MODEL/REASONING_EFFORT`） | ✅ CI 綠：naive 全紅、oracle 全綠（18 tests） |
 | M3 真模型 | openai-compat ＋ cli（codex／claude -p）provider ＋ 報告 JSON | ✅ 雲端 gpt-5.x（原 8 家族）＋ gpt-5.6-sol 經 codex CLI 全 9 案實跑 |
 | M4 展廊 | web/ 三視圖 | ✅ 瀏覽器實測（案例牆／案例頁／成績單矩陣） |
 | M5 內容 | 文件三篇、SECURITY、zh 版、README 定稿 | ✅ 完成 |
