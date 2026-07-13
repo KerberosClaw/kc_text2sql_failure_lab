@@ -1,6 +1,6 @@
 """SQL providers.
 
-Two mocks and one real interface:
+Two mocks and two real interfaces:
 
   mock-naive   : answers every case with its recorded naive_sql — the
                  model whose only job is to be wrong.
@@ -9,6 +9,10 @@ Two mocks and one real interface:
                  (cloud APIs and local Ollama /v1 alike), configured via
                  FLAB_BASE_URL / FLAB_API_KEY / FLAB_MODEL /
                  FLAB_REASONING_EFFORT (optional).
+  cli          : shell out to a local agent CLI (codex, claude -p, ...) as
+                 the model — no API key or HTTP endpoint, just whatever you
+                 already run in a terminal. Configured via FLAB_CLI_CMD and
+                 FLAB_MODEL (label).
 
 The two mocks are the grader's entrance exam: a grader that cannot tell
 them apart has no business scoring a real model.
@@ -18,6 +22,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
+import subprocess
 import urllib.request
 
 
@@ -94,6 +100,56 @@ class OpenAICompat:
         return sql
 
 
+# Agent CLIs echo the prompt and wrap output in ANSI colour, and our prompt
+# literally mentions a "```sql fence" — so a loose first-fence regex would grab
+# the echoed instruction. Anchor fences to the START of a line: the echoed
+# mention is always mid-sentence ("... inside a ```sql fence."), so it can
+# never be mistaken for a real fence, wrapped or not. Prefer the last block
+# explicitly labelled sql; fall back to the last fenced block of any kind;
+# then the raw text.
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+_FENCE_SQL = re.compile(r"(?ms)^```sql\b[^\n]*\n(.*?)^```", re.I)
+_FENCE_ANY = re.compile(r"(?ms)^```[^\n]*\n(.*?)^```")
+
+
+def _extract_sql(raw: str) -> str:
+    text = _ANSI.sub("", raw)
+    blocks = _FENCE_SQL.findall(text) or _FENCE_ANY.findall(text)
+    return (blocks[-1] if blocks else text).strip()
+
+
+class CliModel:
+    name = "cli"
+
+    def __init__(self) -> None:
+        self.cmd = os.environ.get("FLAB_CLI_CMD", "")
+        self.model = os.environ.get("FLAB_MODEL") or self.cmd or "cli"
+        self.timeout = int(os.environ.get("FLAB_CLI_TIMEOUT", "300"))
+        if not self.cmd:
+            raise ProviderError("FLAB_CLI_CMD is required for the cli provider "
+                                "(e.g. 'codex exec' or 'claude -p')")
+
+    def generate_sql(self, case: dict, schema_ddl: str) -> str:
+        prompt = PROMPT_TEMPLATE.format(
+            ddl=schema_ddl, question=case["question"].strip(),
+            clarification=case["ambiguity_resolution"].strip())
+        try:
+            proc = subprocess.run(
+                shlex.split(self.cmd) + [prompt],
+                input="", capture_output=True, text=True, timeout=self.timeout)
+        except FileNotFoundError as e:
+            raise ProviderError(f"cli command not found: {e}")
+        except subprocess.TimeoutExpired:
+            raise ProviderError(f"cli timed out after {self.timeout}s")
+        if proc.returncode != 0:
+            raise ProviderError(
+                f"cli exited {proc.returncode}: {proc.stderr.strip()[:200]}")
+        sql = _extract_sql(proc.stdout)
+        if not sql:
+            raise ProviderError("empty completion")
+        return sql
+
+
 def get_provider(name: str):
     return {"mock-naive": MockNaive, "mock-oracle": MockOracle,
-            "openai": OpenAICompat}[name]()
+            "openai": OpenAICompat, "cli": CliModel}[name]()

@@ -6,6 +6,7 @@ import pytest
 
 from failure_lab import db_gen, runner
 from failure_lab.guard import GuardError, guard
+from failure_lab.providers import _extract_sql
 
 
 @pytest.fixture(scope="session")
@@ -93,6 +94,31 @@ def test_entity_type_invariants(db):
     assert ghost == 0, "codes 1/2 must not exist (enum_code_guess)"
 
 
+def test_scope_predicate_precondition(db):
+    totals_cte = ("WITH ot AS (SELECT o.order_id, SUM(oi.quantity*p.price) t "
+                  "FROM orders o JOIN order_items oi ON oi.order_id=o.order_id "
+                  "JOIN products p ON p.product_id=oi.product_id "
+                  "WHERE o.order_date LIKE '2025-%' GROUP BY o.order_id) ")
+    all_2025 = q1(db, "SELECT COUNT(*) FROM orders WHERE order_date LIKE '2025-%'")
+    high_value = q1(db, totals_cte + "SELECT COUNT(*) FROM ot WHERE t > 500")
+    premium = q1(db, "SELECT COUNT(DISTINCT o.order_id) FROM orders o "
+                     "JOIN order_items oi ON oi.order_id=o.order_id "
+                     "WHERE o.order_date LIKE '2025-%' AND oi.product_id IN (8,12,24)")
+    # No order total lands in the OPEN gap (360, 900): regular orders top out
+    # at 360, premium orders start at 900, so the > 500 threshold is robust to
+    # any value in between. (Orders sit at exactly 900 when a premium item is
+    # bought alone at qty 1 — still comfortably high-value.)
+    gap = q1(db, totals_cte + "SELECT COUNT(*) FROM ot WHERE t > 360 AND t < 900")
+    assert all_2025 == 399
+    # 47 = the 46 premium-tier orders + the one outsized top_n_ties host order,
+    # which is legitimately high-value too. The naive "count all 2025" answer
+    # (399) dwarfs it by ~8x, which is the whole tell.
+    assert high_value == 47, "high-value orders must be a clear minority of 2025"
+    assert premium == 46, "the premium tier drives all but the ties host order"
+    assert high_value * 5 < all_2025, "naive (all orders) must dwarf the filtered answer"
+    assert gap == 0, "clean gap: no order total between regular-max and premium-min"
+
+
 # --- the grader's entrance exam ------------------------------------------
 
 def test_mock_naive_all_fail(db):
@@ -120,6 +146,27 @@ def test_guard_rejects(bad):
 def test_guard_allows_select_and_cte():
     guard("SELECT 1")
     guard("WITH t AS (SELECT 1 AS x) SELECT x FROM t")
+
+
+# --- cli provider fenced-SQL extraction ------------------------------------
+
+def test_cli_extraction_ignores_prompt_echo():
+    # An agent CLI that echoes the prompt (which itself mentions a ```sql
+    # fence mid-sentence), colours output with ANSI, then answers, then adds a
+    # trailing usage note. Only the real line-anchored fence must be picked.
+    out = (
+        "\x1b[36muser\x1b[0m\n"
+        "Rules:\n- Output exactly one SELECT inside a ```sql fence.\n\n"
+        "\x1b[35mcodex\x1b[0m\n"
+        "```sql\nSELECT COUNT(*) FROM orders;\n```\n"
+        "tokens used 123\n"
+    )
+    assert _extract_sql(out) == "SELECT COUNT(*) FROM orders;"
+
+
+def test_cli_extraction_prefers_labelled_over_trailing_block():
+    out = "```sql\nSELECT 1;\n```\n\nnote:\n```\nnot sql at all\n```\n"
+    assert _extract_sql(out) == "SELECT 1;"
 
 
 # --- report hygiene ---------------------------------------------------------

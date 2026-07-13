@@ -1,0 +1,56 @@
+# Case: a scope filter with no clean column, quietly dropped
+id: scope_predicate_drop
+category: scope-predicate
+title: "High-value scope filter dropped, the whole year counted"
+
+question: >
+  How many high-value orders were placed in 2025? A high-value order is one
+  whose total value — the sum of quantity × unit price across all of its line
+  items — is greater than 500.
+
+ambiguity_resolution: >
+  Compute each 2025 order's total as SUM(order_items.quantity *
+  products.price) over its items, then count the distinct orders whose total
+  is strictly greater than 500. Return a single number: one row, one column.
+
+hidden_trap: >
+  There is no order-total column. "High-value" has to be derived — join
+  order_items to products, sum quantity × price per order, then filter. A
+  model that can't or won't build that derived predicate quietly drops the
+  "high-value" qualifier and counts every 2025 order instead — 399, about 8x
+  the 47 that actually clear the line. The query runs, returns a plausible
+  number, and answers a wider question than the one that was asked. What
+  pushes an order over the line is a small premium-priced product tier, not
+  any category or status the schema exposes — so the filter cannot be faked
+  with a plain column, it has to be computed.
+
+naive_sql: |
+  SELECT COUNT(*) AS cnt
+  FROM orders
+  WHERE order_date LIKE '2025-%'
+
+oracle:
+  sql: |
+    WITH order_totals AS (
+      SELECT o.order_id, SUM(oi.quantity * p.price) AS total
+      FROM orders o
+      JOIN order_items oi ON oi.order_id = o.order_id
+      JOIN products p     ON p.product_id = oi.product_id
+      WHERE o.order_date LIKE '2025-%'
+      GROUP BY o.order_id
+    )
+    SELECT COUNT(*) AS cnt
+    FROM order_totals
+    WHERE total > 500
+  grading: scalar
+
+failure_modes: [wrong-result]
+
+zh:
+  title: "高價值範圍過濾被丟掉，整年一起算"
+  question: >
+    2025 年有幾筆高價值訂單？高價值訂單指該訂單的總額 — 各品項的數量 × 單價加總 — 大於 500。
+  ambiguity_resolution: >
+    每筆 2025 訂單的總額＝該訂單各品項 SUM(order_items.quantity × products.price)，再數出總額嚴格大於 500 的不重複訂單數。回傳單一數字：一列一欄。
+  hidden_trap: >
+    沒有「訂單總額」這個欄位。「高價值」必須自己推導 — join order_items 與 products、逐訂單加總 數量 × 單價、再過濾。造不出（或不願造）這個衍生謂詞的模型，會默默把「高價值」這個限定詞整段丟掉、改數全部 2025 訂單：399 筆，約是真正過線的 47 筆的 8 倍。SQL 照跑、回一個看似合理的數字，答的卻是比題目更寬的問題。把訂單推過門檻的是一小撮 premium 高價產品，而不是 schema 裡任何類別或狀態欄，所以這個過濾沒辦法用乾淨欄位假冒 — 只能算出來。

@@ -22,6 +22,7 @@
       scoreboard: "Model scoreboard",
       score_hint: "mock-naive and mock-oracle are the grader’s entrance exam: if they aren’t all-red and all-green, the grader itself is broken.",
       score: "score", back: "← all cases", pass: "✓ pass", fail: "✗ ",
+      not_run: "—", not_run_title: "not scored in this run",
       no_rows: "(no rows — silence that looks like an answer)",
       footer: "Every number on this page is produced live from demo.db by the runner — regenerate with make eval.",
       loading_fail: "Failed to load data. Serve over HTTP: "
@@ -40,6 +41,7 @@
       scoreboard: "模型成績單",
       score_hint: "mock-naive 與 mock-oracle 是判分器的入學考：如果不是一列全紅、一列全綠，壞掉的是判分器自己。",
       score: "得分", back: "← 全部案例", pass: "✓ 通過", fail: "✗ ",
+      not_run: "—", not_run_title: "此份成績單未跑這一案",
       no_rows: "（無資料列 — 一種看起來像答案的沉默）",
       footer: "本頁每個數字都由 runner 從 demo.db 即時產生 — 用 make eval 重新生成。",
       loading_fail: "資料載入失敗。請以 HTTP 服務本目錄："
@@ -112,7 +114,7 @@
   }
 
   function viewScoreboard() {
-    var order = ["mock-naive", "gpt-5.4-nano", "gpt-5.5", "mock-oracle"];
+    var order = ["mock-naive", "gpt-5.4-nano", "gpt-5.5", "gpt-5.6-sol", "mock-oracle"];
     var reports = REPORTS.slice().sort(function (a, b) {
       var ia = order.indexOf(a.model), ib = order.indexOf(b.model);
       return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
@@ -126,9 +128,14 @@
       html += '<tr><td class="case-name"><a href="#/case/' + esc(c.id) + '">' + esc(c.id) + "</a></td>";
       reports.forEach(function (r) {
         var entry = r.cases.find(function (x) { return x.id === c.id; });
-        var ok = entry && entry.status === "pass";
-        html += '<td class="' + (ok ? "cell-pass" : "cell-fail") + '">' +
-                (ok ? esc(t("pass")) : esc(t("fail")) + (entry ? entry.status : "n/a")) + "</td>";
+        if (!entry) {
+          html += '<td class="cell-skip" title="' + esc(t("not_run_title")) +
+                  '">' + esc(t("not_run")) + "</td>";
+        } else if (entry.status === "pass") {
+          html += '<td class="cell-pass">' + esc(t("pass")) + "</td>";
+        } else {
+          html += '<td class="cell-fail">' + esc(t("fail")) + esc(entry.status) + "</td>";
+        }
       });
       html += "</tr>";
     });

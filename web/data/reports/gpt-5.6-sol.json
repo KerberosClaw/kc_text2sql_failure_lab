@@ -1,0 +1,93 @@
+{
+  "provider": "cli",
+  "model": "gpt-5.6-sol",
+  "prompt_hash": "9398ba032262",
+  "summary": {
+    "pass": 9,
+    "fail": 0,
+    "total": 9
+  },
+  "cases": [
+    {
+      "id": "empty_vs_zero",
+      "category": "empty-vs-zero",
+      "title": "Zero-order category silently missing from a monthly report",
+      "sql": "SELECT\n    c.name AS category_name,\n    COUNT(DISTINCT o.order_id) AS order_count\nFROM categories AS c\nLEFT JOIN products AS p\n    ON p.category_id = c.category_id\nLEFT JOIN order_items AS oi\n    ON oi.product_id = p.product_id\nLEFT JOIN orders AS o\n    ON o.order_id = oi.order_id\n   AND o.order_date >= '2025-12-01'\n   AND o.order_date < '2026-01-01'\nGROUP BY c.category_id, c.name\nORDER BY c.name ASC;",
+      "status": "pass",
+      "rows_returned": 6,
+      "latency_ms": 7881
+    },
+    {
+      "id": "entity_type_ignored",
+      "category": "entity-semantics",
+      "title": "Individuals leaderboard topped by corporations",
+      "sql": "SELECT\n    c.full_name AS customer_full_name,\n    COUNT(DISTINCT o.order_id) AS order_count\nFROM customers AS c\nJOIN orders AS o\n    ON o.customer_id = c.customer_id\nWHERE c.entity_type IN (7, 8)\nGROUP BY c.customer_id, c.full_name\nORDER BY order_count DESC, c.full_name ASC\nLIMIT 5;",
+      "status": "pass",
+      "rows_returned": 5,
+      "latency_ms": 6955
+    },
+    {
+      "id": "enum_code_guess",
+      "category": "value-domain",
+      "title": "Guessed entity_type code returns zero rows dressed as an answer",
+      "sql": "SELECT COUNT(DISTINCT o.order_id) AS order_count\nFROM orders AS o\nJOIN customers AS c ON c.customer_id = o.customer_id\nWHERE c.entity_type IN (7, 8)\n  AND o.order_date >= '2025-01-01'\n  AND o.order_date < '2026-01-01';",
+      "status": "pass",
+      "rows_returned": 1,
+      "latency_ms": 3980
+    },
+    {
+      "id": "growth_definition",
+      "category": "growth-definition",
+      "title": "Absolute growth question answered with percentage growth",
+      "sql": "SELECT\n    c.name AS category_name,\n    COUNT(DISTINCT CASE\n        WHEN o.order_date >= '2025-01-01' AND o.order_date < '2026-01-01'\n        THEN o.order_id\n    END) -\n    COUNT(DISTINCT CASE\n        WHEN o.order_date >= '2024-01-01' AND o.order_date < '2025-01-01'\n        THEN o.order_id\n    END) AS absolute_increase\nFROM categories AS c\nLEFT JOIN products AS p\n    ON p.category_id = c.category_id\nLEFT JOIN order_items AS oi\n    ON oi.product_id = p.product_id\nLEFT JOIN orders AS o\n    ON o.order_id = oi.order_id\nGROUP BY c.category_id, c.name\nORDER BY absolute_increase DESC, c.name ASC\nLIMIT 1;",
+      "status": "pass",
+      "rows_returned": 1,
+      "latency_ms": 12445
+    },
+    {
+      "id": "join_fanout_count",
+      "category": "join-fanout",
+      "title": "Order counts inflated by item-level JOIN fan-out",
+      "sql": "SELECT\n  c.name AS category_name,\n  COUNT(DISTINCT o.order_id) AS order_count\nFROM categories AS c\nJOIN products AS p\n  ON p.category_id = c.category_id\nJOIN order_items AS oi\n  ON oi.product_id = p.product_id\nJOIN orders AS o\n  ON o.order_id = oi.order_id\nWHERE o.order_date >= '2025-01-01'\n  AND o.order_date < '2026-01-01'\nGROUP BY c.category_id, c.name\nORDER BY order_count DESC, c.name ASC;",
+      "status": "pass",
+      "rows_returned": 6,
+      "latency_ms": 4981
+    },
+    {
+      "id": "missing_period",
+      "category": "missing-period",
+      "title": "Monthly trend missing the month that had nothing",
+      "sql": "WITH RECURSIVE months(month) AS (\n    SELECT '2025-01'\n    UNION ALL\n    SELECT strftime('%Y-%m', month || '-01', '+1 month')\n    FROM months\n    WHERE month < '2025-12'\n),\ngarden_orders AS (\n    SELECT\n        strftime('%Y-%m', o.order_date) AS month,\n        COUNT(DISTINCT o.order_id) AS order_count\n    FROM orders AS o\n    JOIN order_items AS oi ON oi.order_id = o.order_id\n    JOIN products AS p ON p.product_id = oi.product_id\n    JOIN categories AS c\n      ON c.category_id = p.category_id\n     AND c.name = 'garden'\n    WHERE o.order_date >= '2025-01-01'\n      AND o.order_date < '2026-01-01'\n    GROUP BY strftime('%Y-%m', o.order_date)\n)\nSELECT\n    m.month,\n    COALESCE(g.order_count, 0) AS order_count\nFROM months AS m\nLEFT JOIN garden_orders AS g ON g.month = m.month\nORDER BY m.month;",
+      "status": "pass",
+      "rows_returned": 12,
+      "latency_ms": 9219
+    },
+    {
+      "id": "null_bucket_ranking",
+      "category": "null-semantics",
+      "title": "Top customers ranking swallowed by a NULL bucket",
+      "sql": "SELECT\n  COALESCE(c.company_name, c.full_name) AS customer_display_name,\n  COUNT(DISTINCT o.order_id) AS order_count\nFROM customers AS c\nLEFT JOIN orders AS o\n  ON o.customer_id = c.customer_id\nGROUP BY c.customer_id\nORDER BY order_count DESC, c.customer_id\nLIMIT 10;",
+      "status": "pass",
+      "rows_returned": 10,
+      "latency_ms": 10699
+    },
+    {
+      "id": "scope_predicate_drop",
+      "category": "scope-predicate",
+      "title": "High-value scope filter dropped, the whole year counted",
+      "sql": "SELECT COUNT(*)\nFROM (\n  SELECT o.order_id\n  FROM orders AS o\n  JOIN order_items AS oi ON oi.order_id = o.order_id\n  JOIN products AS p ON p.product_id = oi.product_id\n  WHERE o.order_date >= '2025-01-01'\n    AND o.order_date < '2026-01-01'\n  GROUP BY o.order_id\n  HAVING SUM(oi.quantity * p.price) > 500\n) AS high_value_orders;",
+      "status": "pass",
+      "rows_returned": 1,
+      "latency_ms": 5556
+    },
+    {
+      "id": "top_n_ties",
+      "category": "top-n-ties",
+      "title": "Top-3 ranking with a tie at third place",
+      "sql": "WITH product_units AS (\n  SELECT\n    p.name AS product_name,\n    SUM(oi.quantity) AS units_sold\n  FROM products AS p\n  JOIN categories AS c\n    ON c.category_id = p.category_id\n  JOIN order_items AS oi\n    ON oi.product_id = p.product_id\n  JOIN orders AS o\n    ON o.order_id = oi.order_id\n  WHERE c.name = 'toys'\n    AND o.order_date >= '2025-01-01'\n    AND o.order_date < '2026-01-01'\n  GROUP BY p.product_id, p.name\n),\nranked AS (\n  SELECT\n    product_name,\n    units_sold,\n    DENSE_RANK() OVER (ORDER BY units_sold DESC) AS sales_rank\n  FROM product_units\n)\nSELECT\n  product_name,\n  units_sold\nFROM ranked\nWHERE sales_rank <= 3\nORDER BY units_sold DESC, product_name ASC;",
+      "status": "pass",
+      "rows_returned": 4,
+      "latency_ms": 8102
+    }
+  ]
+}
